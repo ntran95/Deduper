@@ -7,11 +7,11 @@ import argparse
 #test file
 #sam_file = "/Users/GioiTran/Documents/shell/Bi624/Deduper/input_sorted_unit_test.sam"
 #sam_file = "/projects/bgmp/shared/deduper/test.sam"
-sam_file = "/projects/bgmp/ntran2/test_sorted.sam"
+#sam_file = "/projects/bgmp/ntran2/test_sorted.sam"
 
 #known barcode file
 #UMI_file = "/Users/GioiTran/Documents/shell/Bi624/Deduper/STL96.txt"
-UMI_file = "/home/ntran2/bgmp/Bi624/Deduper/STL96.txt"
+#UMI_file = "/home/ntran2/bgmp/Bi624/Deduper/STL96.txt"
 
 #output file 
 #output_file = "/Users/GioiTran/Documents/shell/Bi624/Deduper/output.sam"
@@ -19,24 +19,21 @@ output_file = "/home/ntran2/bgmp/Bi624/Deduper/output.sam"
 
 
 def get_arguements():
-    ```This function handles all argparse agruements i.e, specifying input sam files, UMI file, and pair-ended files (optional)```
+    #```This function handles all argparse agruements i.e, specifying input sam files, UMI file, and pair-ended files (optional)```
     parser = argparse.ArgumentParser(description="flags are set up to specify the desired (sorted) input sam file, UMI file, and an optional flag for pair-ended reads ")
-    parser.add_argument("-f", "--R1_file", help="this argument specifies the R1 file", type =str, required=True)
-    parser.add_argument("-p", "--R2_file", help="this argument specifies the R2 file", type =str, required=True)
-    parser.add_argument("-u", "--R3_file", help="this argument specifies the R3 file", type =str, required=True)
-    parser.add_argument("-h", "--R4_file", help="this argument specifies the R4 file", type =str, required=True)
-   
+    parser.add_argument("-f", "--file", help="this flag will specify the desired sorted, input sam file. Please specify the absolute path", type =str, required=True)
+    parser.add_argument("-p", "--paired", help="optional arg, designates file is paired end (not single-end)", type =str, required=False)
+    parser.add_argument("-u", "--umi", help="optional arg, designates file containing the list of UMIs (unset if randomers instead of UMIs)", type =str, required=True)  
     return parser.parse_args()
 
 args=get_arguements()
-a=args.R1_file
-b=args.R2_file
-c=args.R3_file
-d=args.R4_file
-q=args.avg_qscore
+f=args.file
+p=args.paired
+u=args.umi
+
 
 def get_UMI(file):
-    with open(UMI_file, "rt") as fh:
+    with open(u, "rt") as fh:
         known_UMI = []
         
         for line in fh:
@@ -83,14 +80,14 @@ def reverse(CIGAR_str, POS):
     
 
 
-file_out=open(output_file, "a")
+file_out=open(f+"_deduped", "a")
 
-with open(sam_file, "rt") as file_handle:
+with open(f, "rt") as file_handle:
     
     record_set_fw = set()
     record_set_rv = set()
     
-    umi_list = get_UMI(UMI_file)
+    umi_list = get_UMI(u)
     previous_chromosome = 0
     
     #print(len(umi_list))
@@ -117,7 +114,7 @@ with open(sam_file, "rt") as file_handle:
                 
                 adj_5prime_pos_fw = forward(ref_rec[5], int(ref_rec[3]))
                 #add qname, chromosome, and adjusted 5' position into a tuple
-                record_tuple_fw=  (parsing_QNAME(ref_rec[0]) ,ref_rec[2],adj_5prime_pos_fw, ref_rec[5])
+                record_tuple_fw=  (parsing_QNAME(ref_rec[0]) ,ref_rec[2],adj_5prime_pos_fw)
                 #print(record_tuple_fw)
                 #record_set.add(record_tuple)
                 #print(adj_5prime_pos)
@@ -133,7 +130,7 @@ with open(sam_file, "rt") as file_handle:
             if parsing_QNAME(ref_rec[0]) in umi_list and ((int(ref_rec[1]) & 16) == 16):
                 adj_5prime_pos_rv = reverse(ref_rec[5], int(ref_rec[3]))
                 
-                record_tuple_rv = (parsing_QNAME(ref_rec[0]), ref_rec[2], adj_5prime_pos_rv, ref_rec[5])
+                record_tuple_rv = (parsing_QNAME(ref_rec[0]), ref_rec[2], adj_5prime_pos_rv)
                 
                 
                 if record_tuple_rv not in record_set_rv:
