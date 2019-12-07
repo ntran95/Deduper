@@ -6,11 +6,11 @@ import argparse
 
 #output file
 #output_file = "/Users/GioiTran/Documents/shell/Bi624/Deduper/output.sam"
-output_file = "/home/ntran2/bgmp/Bi624/Deduper/output.sam"
+#output_file = "/home/ntran2/bgmp/Bi624/Deduper/output.sam"
 
 
 def get_arguements():
-    ```This function handles all argparse agruements i.e, specifying input sam files, UMI file, and pair-ended files (optional)```
+    #```This function handles all argparse agruements i.e, specifying input sam files, UMI file, and pair-ended files (optional)```
     parser = argparse.ArgumentParser(description="flags are set up to specify the desired (sorted) input sam file, UMI file, and an optional flag for pair-ended reads ")
     parser.add_argument("-f", "--file", help="this flag will specify the desired sorted, input sam file. Please specify the absolute path", type =str, required=True)
     parser.add_argument("-p", "--paired", help="optional arg, designates file is paired end (not single-end)", type =str, required=False)
@@ -23,8 +23,11 @@ p=args.paired
 u=args.umi
 
 
+if p:
+    print("Error in argparse")
+
 def get_UMI(file):
-    ```This function will take in a file specifying the list of known UMIs. This function will then capture the UMIs and return all known UMIs into a list ```
+    #```This function will take in a file specifying the list of known UMIs. This function will then capture the UMIs and return all known UMIs into a list ```
     #reading in file
     with open(u, "rt") as fh:
         #creating empty list to hold UMIs
@@ -37,7 +40,7 @@ def get_UMI(file):
     return(known_UMI)
 
 def parsing_QNAME(qname):
-    ```This function takes in the QNAME, which is the first element in the SAM format, as a parameter. It will split the qname by the ":" and return the last element (which contains the )```
+    #```This function takes in the QNAME, which is the first element in the SAM format, as a parameter. It will split the qname by the ":" and return the last element (which contains the )```
     #.split() will automatically store sections into a list, delimited by each ":"
     qname_list = qname.split(":")
     #print(qname_list)
@@ -45,7 +48,7 @@ def parsing_QNAME(qname):
     return qname_list[-1] #get the last element in the list (where barcode is)
 
 def forward(CIGAR_str, POS):
-    ```This function will take in the cigar string and original position taken from the SAM read as its parameters if the reads are forward. It will return the adjusted position by subtracting the original POS if the leftmost cigar string contains a "S"```
+    #```This function will take in the cigar string and original position taken from the SAM read as its parameters if the reads are forward. It will return the adjusted position by subtracting the original POS if the leftmost cigar string contains a "S"```
     #using the regex, findall method to store the number and letter of the cigar string into a tuple
     cigar_list = re.findall('(\d+)([MNS])', CIGAR_str )
 
@@ -64,7 +67,7 @@ def forward(CIGAR_str, POS):
 
 
 def reverse(CIGAR_str, POS):
-    ```This function will take in the cigar string and original position taken from the SAM read as its parameters if the reads are reverse. It will return the adjusted position by adding numbers from N's, M's, D's and S's to the original POS if the rightmost cigar string contains a "S. Return the adjusted POS"```
+    #```This function will take in the cigar string and original position taken from the SAM read as its parameters if the reads are reverse. It will return the adjusted position by adding numbers from N's, M's, D's and S's to the original POS if the rightmost cigar string contains a "S. Return the adjusted POS"```
     #create a tuple by spliting the store the number and character of the cigar
     cigar_list = re.findall('(\d+)([MNSD])', CIGAR_str )
     #print(cigar_list)
