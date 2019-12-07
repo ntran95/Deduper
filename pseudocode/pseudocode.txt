@@ -1,0 +1,149 @@
+Problem: During RNA-Seq Library Prep, PCR amplification is imperative step in the experimental workflow.
+However, a byproduct is the occurrence of PCR duplication, where replicates of the same molecule are overly expressed, leading to PCR bias.
+
+Solution: Here, I will attempt to identify PCR duplicates and remove multiple occurrences of the same molecule using a custom python script called
+"Deduper". My Deduper script will look at:
+
+* reads on the same alignment position (using RNAME, OS, & FLAG as metrics)
+* soft clipping (using CIGAR "S" as metric)
+* same UMI (using QNAME & STL96.txt file as metric)
+on a sorted SAM file to identify PCR duplicates.
+
+My script operates under the following assumption:
+
+* the input SAM file is sorted
+* the reads of the SAM file are single-ended
+* the UMIs from QNAME match the UMIs listed in the STL96.txt file
+
+------------------------------------------------ Actual PseudoCode Starts Here ---------------------------------------------------------------
+
+def get_UMI:
+```This function will read in the known UMI file (STL96.txt) and return a list of known UMIs. This function will be called once we've read in the sorted sam file.
+If the SAM record does not contain a known UMI, the record will be discarded. No parameters passed thru this function```
+
+  open(STL96.txt, "rt") as file:
+    #create an empty list containing known UMI
+    known_UMI = []
+    for line in file:
+      append UMIs from file into known_UMI
+  return known_UMI
+
+Unit Test: get_UMI()
+[AACGCCAT, AAGGTACG ,AATTCCGG, ACACAGAG, ACACTCAG...etc]
+
+def parsing_QNAME(QNAME):
+```This function takes in one parameter: The QNAME taken from element [0] in the record lists.
+Since QNAME contains a long string, delimited by ":", this function will be used to parse thru the QNAME to find the actual UMI string. Will return true if
+two UMIs match each other```
+# i.g) NS500451:154:HWKTMBGXX:1:11101:15364:1139:GAACAGGT <- we want to split by ":" to isolate the UMIs
+
+    QNAME = QNAME.split(":")
+    *this will turn QNAME into a list, split by the ":" symbol
+
+    return the last element in the new list that holds the UMIs
+    i.g) QNAME[7]
+
+Unit test: parsing_QNAME(NS500451:154:HWKTMBGXX:1:11101:15364:1139:GAACAGGT)
+return: GAACAGGT
+
+def forward(CIGAR_str, POS):
+```This function is called if the bitwise flag is NOT 16, indicating that the record is a forward read.
+This function accounts ONLY for soft-clipping on the left-most side of the CIGAR string```
+
+    while the CIGAR string is not empty
+    while CIGAR_str != " "
+      regex out the Number and Letter on the 5' end
+      Subtract # pertaining to S's from the starting Position
+      return POS
+
+Unit test: forward(3S20M3I100N2D45M7S, 700)
+return: 697
+
+def reverse_comp(CIGAR_str, POS):
+```This function is called if the bitwise flag of IS 16, indicating that the record is a reverse complement read.
+This function accounts for Insertions, Deletions and soft-clipping on the right-most side of the CIGAR string```
+
+    while the CIGAR string is not empty
+    while CIGAR_str != " "
+      regex out the Number and Letter
+      Sum up # pertaining to M's, N's, D's
+      Ignore # pertaining to I's (Insertions do nothing)
+      Add # pertaining to S's (on the right side: 3M5N2S)
+      return POS
+
+Unit test: reverse(3S20M3I100N2D45M7S, 20)
+return: 180 
+
+
+#reading in records of the SAM file, 1 record at a time, each record read in will be compared to the record stored in that list
+with open(sorted.sam, "rt") as file:
+
+  #call on get_UMI function, create new list for known UMIs
+  UMI_list = get_UMI()
+
+  While True:
+
+    1) a) create an empty list to store the reference record in
+          reference_record = []
+
+      b) create another empty list to store the next record
+         next_record = []
+
+    2)create an if statement that ignores headers starting with "@" from SAM file:
+      *we don't want the first nth lines of the SAM file containing headers beginning with "@"
+
+    3) L1 = read in first record of SAM file
+
+      L2 = read in the next record of the SAM file
+
+    4) append reference record to reference_record[], use .readline() and .rstrip(" ")
+
+       append next record to next_record[], use. readLine() & .rstrip(" ")
+
+       *this will store records into a list, partitioned by their columns parameters (QNAME, BITWISE, PLEN, ETC)
+
+    5)break out of loop if the first line is empty,
+    if L1 == "":
+        break
+
+    6) call on parsing_QNAME() and check to see if reference_record[0] or next_record[0] contains the a known UMI:
+      (the logic is to efficiently break out of the loop at the first "if" condition if QNAME is not in UMI_list[])
+      if parsing_QNAME(reference_record[0]) is not UMI_list:
+          discard old this records
+          iterate over a new record, start at the top of this loop again
+          append new record into reference_record[]
+          append following record to next_record[]
+
+
+  7) if parsing_QNAME(reference_record[0]) == parsing_QNAME(next_record[0]) and  reference_record[0] is in UMI_list[]:
+      move to the next nested-if statement, the two records have passed the first parameters for being PCR duplicates because:
+      * they have the same UMI and the UMI is one of the 96 indexes in the UMI_list
+
+
+              8) another nested if statement that checks if chromosome (RNAME) column are the same between reference_record & next_record
+              if reference_record[3] == next_record[3]:
+              move on to the next condition,
+
+
+                      9) if (reference_record[1] AND next_record[1] & 16) != 16 AND forward(reference_record[5], reference_record[3]) == forward(next_record[5], next_record[3]):
+                      for PCR duplication to occur, record 1 and record 2 MUST both have the same directionality
+                      call on the forward() function that only looks at soft-clipping on the left-most of the CIGAR string
+                      this is the last condition that checks for PCR duplication for a FORWARD read, file out
+
+
+                      empty/clear next_record[]
+
+
+                      10) else if: (reference_record[1] AND next_record[1] & 16) == 16 AND reverse_comp(reference_record[5], reference_record[3]) == reverse_comp(next_record[5], next_record[3]):
+                      call on the reverse_comp() function that accounts for CIGARs with Insertions, Deletions and soft-clipping on the right-most side
+
+                      empty/clear next_record[]
+
+  11) ELSE:
+    this loop is initiated if reference_record and next_record are not PCR duplicates
+    append new reference_record
+    append new next_record to compare to reference_record
+
+
+
+    iterate over the next record, to be stored in next_record[]
